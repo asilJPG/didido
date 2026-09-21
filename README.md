@@ -1,12 +1,11 @@
 # Это сделано? — Supabase-версия
 
-Задачи и профили хранятся в Supabase. Row Level Security гарантирует, что пользователь читает и меняет только свои профили и задачи.
+Личный веб-трекер повторяющихся бытовых проверок. Данные пользователей, профили и задачи хранятся напрямую в базе данных Supabase (PostgreSQL).
 
 ## Первый запуск
 
 1. Вставьте содержимое [supabase.sql](supabase.sql) в **Supabase Dashboard → SQL Editor** и нажмите Run.
-2. В **Authentication → Providers → Email** отключите **Confirm email**: это даст моментальный вход после регистрации без реального e-mail.
-3. Запустите сайт:
+2. Запустите сайт:
 
 ```bash
 npm run dev
@@ -16,19 +15,30 @@ npm run dev
 
 ## Логин и профили
 
-Supabase использует e-mail + пароль, но интерфейс показывает только логин. Например, при входе `asil` приложение безопасно и невидимо преобразует его в `asil@didido.local`. Для первого использования нажмите «Создать аккаунт» и укажите `asil` с паролем. После входа меню `•••` позволяет добавлять и переключать отдельные профили задач.
-
-Для опубликованного сайта замените простой пароль на уникальный, длинный пароль.
+Авторизация работает напрямую через таблицу пользователей в базе данных с безопасным хешированием паролей (`pgcrypto`/`bcrypt`).
+- Для первого использования выберите **«Создать аккаунт»**, укажите логин и пароль.
+- При регистрации автоматически создаётся стартовый профиль с вашим именем.
+- После входа меню `•••` позволяет добавлять и переключать отдельные профили задач.
 
 ## Apple Shortcuts / Back Tap API
 
-Shortcuts вызывает Supabase напрямую через HTTPS как авторизованный пользователь.
+Shortcuts может работать с задачами напрямую через REST API Supabase:
 
-1. Получите сессию: `POST https://<SUPABASE_PROJECT_REF>.supabase.co/auth/v1/token?grant_type=password`.
-   Передайте заголовки `apikey: <NEXT_PUBLIC_SUPABASE_ANON_KEY>` и `Content-Type: application/json`, JSON: `{ "email": "<username>@didido.local", "password": "ВАШ_ПАРОЛЬ" }`. Сохраните поле `access_token`.
-2. Запросите профили: `GET https://<SUPABASE_PROJECT_REF>.supabase.co/rest/v1/didido_profiles?select=id,name`.
-3. Загрузите задачи нужного профиля: `GET https://<SUPABASE_PROJECT_REF>.supabase.co/rest/v1/didido_tasks?profile_id=eq.<PROFILE_ID>&select=*`.
+1. Авторизация через RPC:
+   `POST https://<SUPABASE_PROJECT_REF>.supabase.co/rest/v1/rpc/didido_login`
+   Заголовки: `apikey: <NEXT_PUBLIC_SUPABASE_ANON_KEY>`, `Content-Type: application/json`
+   JSON: `{"p_username": "<username>", "p_password": "<password>"}`
+   Ответ вернёт объект `{"id": "<user_id>", "username": "<username>"}`.
 
-Для каждого REST-вызова используйте два заголовка: `apikey: <ANON_KEY>` и `Authorization: Bearer <access_token>`. В Shortcuts покажите полученный список действием **Show Result**, затем назначьте команду на «Настройки → Универсальный доступ → Касание → Касание задней панели».
+2. Запрос списка профилей пользователя:
+   `GET https://<SUPABASE_PROJECT_REF>.supabase.co/rest/v1/didido_profiles?owner_id=eq.<USER_ID>&select=id,name`
+   Заголовки: `apikey: <NEXT_PUBLIC_SUPABASE_ANON_KEY>`
 
-Отметить задачу: `PATCH /rest/v1/didido_tasks?id=eq.<TASK_ID>` с JSON `{ "done": true, "done_at": "2026-09-21T12:00:00Z" }` и заголовком `Content-Type: application/json`.
+3. Загрузка задач выбранного профиля:
+   `GET https://<SUPABASE_PROJECT_REF>.supabase.co/rest/v1/didido_tasks?profile_id=eq.<PROFILE_ID>&select=*`
+   Заголовки: `apikey: <NEXT_PUBLIC_SUPABASE_ANON_KEY>`
+
+4. Отметка задачи:
+   `PATCH https://<SUPABASE_PROJECT_REF>.supabase.co/rest/v1/didido_tasks?id=eq.<TASK_ID>`
+   Заголовки: `apikey: <NEXT_PUBLIC_SUPABASE_ANON_KEY>`, `Content-Type: application/json`
+   JSON: `{"done": true, "done_at": "2026-09-21T12:00:00Z"}`
