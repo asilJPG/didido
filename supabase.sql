@@ -41,7 +41,7 @@ create policy "didido allow all on profiles" on public.didido_profiles for all u
 create policy "didido allow all on tasks" on public.didido_tasks for all using (true) with check (true);
 
 create or replace function public.didido_create_initial_profile()
-returns trigger language plpgsql security definer set search_path = public as $$
+returns trigger language plpgsql security definer set search_path = public, extensions as $$
 begin
   insert into public.didido_profiles (owner_id, name)
   values (new.id, new.username);
@@ -54,10 +54,12 @@ create trigger didido_on_user_created
   for each row execute procedure public.didido_create_initial_profile();
 
 create or replace function public.didido_register(p_username text, p_password text)
-returns json language plpgsql security definer set search_path = public as $$
+returns json language plpgsql security definer set search_path = public, extensions as $$
 declare
   v_user public.didido_users%rowtype;
   v_clean_username text;
+  v_salt text;
+  v_hash text;
 begin
   v_clean_username := lower(trim(p_username));
   if char_length(v_clean_username) < 3 or char_length(v_clean_username) > 30 then
@@ -67,8 +69,17 @@ begin
     raise exception 'Пароль должен быть не менее 6 символов';
   end if;
 
+  -- Support both public and extensions schema for pgcrypto
+  begin
+    v_salt := extensions.gen_salt('bf');
+    v_hash := extensions.crypt(p_password, v_salt);
+  exception when undefined_function then
+    v_salt := public.gen_salt('bf');
+    v_hash := public.crypt(p_password, v_salt);
+  end;
+
   insert into public.didido_users (username, password_hash)
-  values (v_clean_username, crypt(p_password, gen_salt('bf')))
+  values (v_clean_username, v_hash)
   returning * into v_user;
 
   return json_build_object('id', v_user.id, 'username', v_user.username);
@@ -79,17 +90,28 @@ end;
 $$;
 
 create or replace function public.didido_login(p_username text, p_password text)
-returns json language plpgsql security definer set search_path = public as $$
+returns json language plpgsql security definer set search_path = public, extensions as $$
 declare
   v_user public.didido_users%rowtype;
   v_clean_username text;
+  v_check_hash text;
 begin
   v_clean_username := lower(trim(p_username));
   select * into v_user
   from public.didido_users
   where username = v_clean_username;
 
-  if not found or v_user.password_hash != crypt(p_password, v_user.password_hash) then
+  if not found then
+    raise exception 'Неверный логин или пароль';
+  end if;
+
+  begin
+    v_check_hash := extensions.crypt(p_password, v_user.password_hash);
+  exception when undefined_function then
+    v_check_hash := public.crypt(p_password, v_user.password_hash);
+  end;
+
+  if v_user.password_hash != v_check_hash then
     raise exception 'Неверный логин или пароль';
   end if;
 
