@@ -24,11 +24,11 @@ Supabase использует e-mail + пароль, но интерфейс п�
 
 Shortcuts вызывает Supabase напрямую через HTTPS как авторизованный пользователь.
 
-1. Получите сессию: `POST https://qrfdpzigcarbethrsioe.supabase.co/auth/v1/token?grant_type=password`.
-   Передайте заголовки `apikey: <NEXT_PUBLIC_SUPABASE_ANON_KEY>` и `Content-Type: application/json`, JSON: `{ "email": "asil@didido.local", "password": "ВАШ_ПАРОЛЬ" }`. Сохраните поле `access_token`.
-2. Запросите профили: `GET https://qrfdpzigcarbethrsioe.supabase.co/rest/v1/profiles?select=id,name`.
-3. Загрузите задачи нужного профиля: `GET https://qrfdpzigcarbethrsioe.supabase.co/rest/v1/tasks?profile_id=eq.<PROFILE_ID>&select=*`.
+1. Получите сессию: `POST https://<SUPABASE_PROJECT_REF>.supabase.co/auth/v1/token?grant_type=password`.
+   Передайте заголовки `apikey: <NEXT_PUBLIC_SUPABASE_ANON_KEY>` и `Content-Type: application/json`, JSON: `{ "email": "<username>@didido.local", "password": "ВАШ_ПАРОЛЬ" }`. Сохраните поле `access_token`.
+2. Запросите профили: `GET https://<SUPABASE_PROJECT_REF>.supabase.co/rest/v1/didido_profiles?select=id,name`.
+3. Загрузите задачи нужного профиля: `GET https://<SUPABASE_PROJECT_REF>.supabase.co/rest/v1/didido_tasks?profile_id=eq.<PROFILE_ID>&select=*`.
 
 Для каждого REST-вызова используйте два заголовка: `apikey: <ANON_KEY>` и `Authorization: Bearer <access_token>`. В Shortcuts покажите полученный список действием **Show Result**, затем назначьте команду на «Настройки → Универсальный доступ → Касание → Касание задней панели».
 
-Отметить задачу: `PATCH /rest/v1/tasks?id=eq.<TASK_ID>` с JSON `{ "done": true, "done_at": "2026-09-21T12:00:00Z" }` и заголовком `Content-Type: application/json`.
+Отметить задачу: `PATCH /rest/v1/didido_tasks?id=eq.<TASK_ID>` с JSON `{ "done": true, "done_at": "2026-09-21T12:00:00Z" }` и заголовком `Content-Type: application/json`.
