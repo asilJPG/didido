@@ -46,7 +46,11 @@ async function toggle(task) {
 }
 
 async function loadTasks() {
-  if (!activeProfileId) return;
+  if (!activeProfileId) {
+    tasks = [];
+    render();
+    return;
+  }
   const { data, error } = await db.from('didido_tasks').select('*').eq('profile_id', activeProfileId).order('created_at', { ascending: false });
   if (error) return alert(error.message);
   tasks = data || [];
@@ -65,6 +69,19 @@ async function loadProfiles() {
   const { data, error } = await db.from('didido_profiles').select('*').eq('owner_id', currentUser.id).order('created_at');
   if (error) return alert(error.message);
   profiles = data || [];
+
+  // Если у пользователя ещё нет профиля (например, создан до триггера), создаём начальный
+  if (profiles.length === 0) {
+    const defaultName = currentUser.username || 'Основной';
+    const { data: newProfile, error: createErr } = await db.from('didido_profiles').insert({
+      owner_id: currentUser.id,
+      name: defaultName
+    }).select().single();
+    if (!createErr && newProfile) {
+      profiles = [newProfile];
+    }
+  }
+
   if (!profiles.some(p => p.id === activeProfileId)) {
     activeProfileId = profiles[0]?.id || null;
   }

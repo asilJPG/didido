@@ -40,6 +40,12 @@ alter table public.didido_tasks enable row level security;
 create policy "didido allow all on profiles" on public.didido_profiles for all using (true) with check (true);
 create policy "didido allow all on tasks" on public.didido_tasks for all using (true) with check (true);
 
+-- Permissions for Supabase public/anon client
+grant usage on schema public to anon, authenticated;
+grant all on table public.didido_users to anon, authenticated;
+grant all on table public.didido_profiles to anon, authenticated;
+grant all on table public.didido_tasks to anon, authenticated;
+
 create or replace function public.didido_create_initial_profile()
 returns trigger language plpgsql security definer set search_path = public, extensions as $$
 begin
@@ -118,3 +124,6 @@ begin
   return json_build_object('id', v_user.id, 'username', v_user.username);
 end;
 $$;
+
+grant execute on function public.didido_register(text, text) to anon, authenticated;
+grant execute on function public.didido_login(text, text) to anon, authenticated;
