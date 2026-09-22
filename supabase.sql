@@ -37,6 +37,7 @@ alter table public.didido_users enable row level security;
 alter table public.didido_profiles enable row level security;
 alter table public.didido_tasks enable row level security;
 
+create policy "didido allow read users" on public.didido_users for select using (true);
 create policy "didido allow all on profiles" on public.didido_profiles for all using (true) with check (true);
 create policy "didido allow all on tasks" on public.didido_tasks for all using (true) with check (true);
 
@@ -125,13 +126,36 @@ begin
 end;
 $$;
 
--- 1. RPC to get pre-formatted menu list for Apple Shortcuts (with "Add Task" button at the end)
-create or replace function public.didido_shortcut_menu(p_profile_id uuid)
+-- 1. RPC to get menu for user (by username or user_id)
+create or replace function public.didido_shortcut_menu_by_user(p_user text)
 returns json language plpgsql security definer set search_path = public as $$
 declare
+  v_user_id uuid;
+  v_profile_id uuid;
   v_tasks json;
   v_result json;
 begin
+  select id into v_user_id
+  from public.didido_users
+  where username = lower(trim(p_user))
+     or (p_user ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and id = p_user::uuid);
+
+  if not found then
+    return json_build_array(json_build_object('id', 'ERROR', 'title', '❌ Пользователь не найден'));
+  end if;
+
+  select id into v_profile_id
+  from public.didido_profiles
+  where owner_id = v_user_id
+  order by created_at asc
+  limit 1;
+
+  if not found then
+    insert into public.didido_profiles (owner_id, name)
+    values (v_user_id, 'Мой профиль')
+    returning id into v_profile_id;
+  end if;
+
   select json_agg(
     json_build_object(
       'id', id::text,
@@ -139,7 +163,7 @@ begin
     ) order by done asc, created_at desc
   ) into v_tasks
   from public.didido_tasks
-  where profile_id = p_profile_id;
+  where profile_id = v_profile_id;
 
   v_tasks := coalesce(v_tasks, '[]'::json);
 
@@ -154,7 +178,7 @@ begin
 end;
 $$;
 
--- 2. RPC to toggle task done/undone with single call
+-- 2. RPC to toggle task status
 create or replace function public.didido_toggle_task(p_task_id uuid)
 returns json language plpgsql security definer set search_path = public as $$
 declare
@@ -175,13 +199,36 @@ begin
 end;
 $$;
 
--- 3. RPC to add a new task from Shortcut with auto-emoji
-create or replace function public.didido_add_task(p_profile_id uuid, p_title text)
+-- 3. RPC to add task by username or user_id
+create or replace function public.didido_add_task_by_user(p_user text, p_title text)
 returns json language plpgsql security definer set search_path = public as $$
 declare
+  v_user_id uuid;
+  v_profile_id uuid;
   v_task public.didido_tasks%rowtype;
   v_icon text;
 begin
+  select id into v_user_id
+  from public.didido_users
+  where username = lower(trim(p_user))
+     or (p_user ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and id = p_user::uuid);
+
+  if not found then
+    raise exception 'Пользователь не найден';
+  end if;
+
+  select id into v_profile_id
+  from public.didido_profiles
+  where owner_id = v_user_id
+  order by created_at asc
+  limit 1;
+
+  if not found then
+    insert into public.didido_profiles (owner_id, name)
+    values (v_user_id, 'Мой профиль')
+    returning id into v_profile_id;
+  end if;
+
   v_icon := case
     when lower(p_title) ~ 'двер|замок|ключ' then '🔑'
     when lower(p_title) ~ 'утюг|розетк|зарядк' then '🔌'
@@ -198,7 +245,7 @@ begin
   end;
 
   insert into public.didido_tasks (profile_id, title, icon)
-  values (p_profile_id, trim(p_title), v_icon)
+  values (v_profile_id, trim(p_title), v_icon)
   returning * into v_task;
 
   return json_build_object('id', v_task.id, 'title', v_task.title, 'icon', v_task.icon);
@@ -207,6 +254,6 @@ $$;
 
 grant execute on function public.didido_register(text, text) to anon, authenticated;
 grant execute on function public.didido_login(text, text) to anon, authenticated;
-grant execute on function public.didido_shortcut_menu(uuid) to anon, authenticated;
+grant execute on function public.didido_shortcut_menu_by_user(text) to anon, authenticated;
 grant execute on function public.didido_toggle_task(uuid) to anon, authenticated;
-grant execute on function public.didido_add_task(uuid, text) to anon, authenticated;
+grant execute on function public.didido_add_task_by_user(text, text) to anon, authenticated;

@@ -7,11 +7,10 @@ export default async function handler(req, res) {
     return res.status(204).end();
   }
 
-  const userId = req.query.user_id;
-  const username = req.query.username;
+  const user = req.query.username || req.query.user_id || req.query.user;
 
-  if (!userId && !username) {
-    return res.status(400).json({ error: 'Укажите user_id или username' });
+  if (!user) {
+    return res.status(400).json([{ id: 'ERROR', title: '❌ Укажите ?username=ваш_логин' }]);
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -23,34 +22,15 @@ export default async function handler(req, res) {
   };
 
   try {
-    let resolvedUserId = userId;
-    if (!resolvedUserId && username) {
-      const uRes = await fetch(`${url}/rest/v1/didido_users?username=eq.${encodeURIComponent(username.toLowerCase())}&select=id&limit=1`, { headers });
-      const users = await uRes.json();
-      resolvedUserId = users?.[0]?.id;
-    }
-
-    if (!resolvedUserId) {
-      return res.status(404).json({ error: 'Пользователь не найден' });
-    }
-
-    const pRes = await fetch(`${url}/rest/v1/didido_profiles?owner_id=eq.${resolvedUserId}&order=created_at.asc&limit=1`, { headers });
-    const profiles = await pRes.json();
-    const profileId = profiles?.[0]?.id;
-
-    if (!profileId) {
-      return res.status(200).json([{ id: 'ADD_NEW', title: '➕ Добавить первую задачу' }]);
-    }
-
-    const mRes = await fetch(`${url}/rest/v1/rpc/didido_shortcut_menu`, {
+    const mRes = await fetch(`${url}/rest/v1/rpc/didido_shortcut_menu_by_user`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ p_profile_id: profileId })
+      body: JSON.stringify({ p_user: user })
     });
     const menu = await mRes.json();
 
     return res.status(200).json(menu);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json([{ id: 'ERROR', title: `❌ Ошибка: ${err.message}` }]);
   }
 }

@@ -67,45 +67,25 @@ createServer(async (req, res) => {
     return send(res, 200, `window.DIDIDO_CONFIG=${JSON.stringify({ url, key })};`, 'text/javascript; charset=utf-8');
   }
 
-  // 1. API: Get menu for user by user_id or username (No API keys needed in Shortcuts!)
+  // 1. API: Get menu for user by username or user_id
   if (path === '/api/menu' || path === '/api/tasks') {
-    const userId = url.searchParams.get('user_id');
-    const username = url.searchParams.get('username');
+    const user = url.searchParams.get('username') || url.searchParams.get('user_id') || url.searchParams.get('user');
 
-    if (!userId && !username) {
-      return send(res, 400, { error: 'Укажите user_id или username' });
+    if (!user) {
+      return send(res, 400, [{ id: 'ERROR', title: '❌ Укажите ?username=ваш_логин' }]);
     }
 
     try {
-      let resolvedUserId = userId;
-      if (!resolvedUserId && username) {
-        const users = await supabaseFetch(`/rest/v1/didido_users?username=eq.${encodeURIComponent(username.toLowerCase())}&select=id&limit=1`);
-        resolvedUserId = users?.[0]?.id;
-      }
-
-      if (!resolvedUserId) {
-        return send(res, 404, { error: 'Пользователь не найден' });
-      }
-
-      // Get user's primary profile
-      const profiles = await supabaseFetch(`/rest/v1/didido_profiles?owner_id=eq.${resolvedUserId}&order=created_at.asc&limit=1`);
-      const profileId = profiles?.[0]?.id;
-
-      if (!profileId) {
-        return send(res, 200, [{ id: 'ADD_NEW', title: '➕ Добавить первую задачу' }]);
-      }
-
-      const menu = await supabaseFetch('/rest/v1/rpc/didido_shortcut_menu', 'POST', {
-        p_profile_id: profileId
+      const menu = await supabaseFetch('/rest/v1/rpc/didido_shortcut_menu_by_user', 'POST', {
+        p_user: user
       });
-
       return send(res, 200, menu);
     } catch (err) {
-      return send(res, 500, { error: err.message });
+      return send(res, 500, [{ id: 'ERROR', title: `❌ Ошибка: ${err.message}` }]);
     }
   }
 
-  // 2. API: Toggle task status (NO headers needed!)
+  // 2. API: Toggle task status
   if (path === '/api/toggle') {
     const taskId = url.searchParams.get('id') || url.searchParams.get('task_id');
     if (!taskId) {
@@ -122,28 +102,20 @@ createServer(async (req, res) => {
     }
   }
 
-  // 3. API: Add task for user (NO headers needed!)
+  // 3. API: Add task for user
   if (path === '/api/add') {
-    const userId = url.searchParams.get('user_id');
+    const user = url.searchParams.get('username') || url.searchParams.get('user_id') || url.searchParams.get('user');
     const title = url.searchParams.get('title');
 
-    if (!userId || !title) {
-      return send(res, 400, { error: 'Укажите user_id и title' });
+    if (!user || !title) {
+      return send(res, 400, { error: 'Укажите username/user_id и title' });
     }
 
     try {
-      const profiles = await supabaseFetch(`/rest/v1/didido_profiles?owner_id=eq.${userId}&order=created_at.asc&limit=1`);
-      const profileId = profiles?.[0]?.id;
-
-      if (!profileId) {
-        return send(res, 404, { error: 'Профиль не найден' });
-      }
-
-      const result = await supabaseFetch('/rest/v1/rpc/didido_add_task', 'POST', {
-        p_profile_id: profileId,
+      const result = await supabaseFetch('/rest/v1/rpc/didido_add_task_by_user', 'POST', {
+        p_user: user,
         p_title: title
       });
-
       return send(res, 200, { success: true, task: result });
     } catch (err) {
       return send(res, 500, { error: err.message });
