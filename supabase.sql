@@ -125,5 +125,27 @@ begin
 end;
 $$;
 
+-- RPC for Apple Shortcuts: toggles task done boolean with 1 simple call
+create or replace function public.didido_toggle_task(p_task_id uuid)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_task public.didido_tasks%rowtype;
+begin
+  select * into v_task from public.didido_tasks where id = p_task_id;
+  if not found then
+    raise exception 'Task not found';
+  end if;
+
+  update public.didido_tasks
+  set done = not v_task.done,
+      done_at = case when not v_task.done then now() else null end
+  where id = p_task_id
+  returning * into v_task;
+
+  return json_build_object('id', v_task.id, 'title', v_task.title, 'done', v_task.done);
+end;
+$$;
+
 grant execute on function public.didido_register(text, text) to anon, authenticated;
 grant execute on function public.didido_login(text, text) to anon, authenticated;
+grant execute on function public.didido_toggle_task(uuid) to anon, authenticated;
