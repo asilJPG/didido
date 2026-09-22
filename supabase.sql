@@ -41,7 +41,6 @@ create policy "didido allow read users" on public.didido_users for select using 
 create policy "didido allow all on profiles" on public.didido_profiles for all using (true) with check (true);
 create policy "didido allow all on tasks" on public.didido_tasks for all using (true) with check (true);
 
--- Permissions for Supabase public/anon client
 grant usage on schema public to anon, authenticated;
 grant all on table public.didido_users to anon, authenticated;
 grant all on table public.didido_profiles to anon, authenticated;
@@ -76,7 +75,6 @@ begin
     raise exception 'Пароль должен быть не менее 6 символов';
   end if;
 
-  -- Support both public and extensions schema for pgcrypto
   begin
     v_salt := extensions.gen_salt('bf');
     v_hash := extensions.crypt(p_password, v_salt);
@@ -126,13 +124,12 @@ begin
 end;
 $$;
 
--- 1. RPC to get menu for user (by username or user_id)
+-- 1. RPC to get dictionary menu for Shortcuts (Keys = Titles, Values = IDs)
 create or replace function public.didido_shortcut_menu_by_user(p_user text)
 returns json language plpgsql security definer set search_path = public as $$
 declare
   v_user_id uuid;
   v_profile_id uuid;
-  v_tasks json;
   v_result json;
 begin
   select id into v_user_id
@@ -140,7 +137,7 @@ begin
   where username = lower(trim(p_user)) or id::text = p_user;
 
   if not found then
-    return json_build_array(json_build_object('id', 'ERROR', 'title', '❌ Пользователь не найден'));
+    return json_build_object('❌ Пользователь не найден', 'ERROR');
   end if;
 
   select id into v_profile_id
@@ -155,25 +152,26 @@ begin
     returning id into v_profile_id;
   end if;
 
-  select json_agg(
-    json_build_object(
-      'id', id::text,
-      'title', case when done then '✓ [YES] ' else '○ [ NO ] ' end || icon || ' ' || title
-    ) order by done asc, created_at desc
-  ) into v_tasks
-  from public.didido_tasks
-  where profile_id = v_profile_id;
-
-  v_tasks := coalesce(v_tasks, '[]'::json);
-
-  select json_agg(item) into v_result
-  from (
-    select json_array_elements(v_tasks) as item
+  with ordered_tasks as (
+    select
+      case when done then '✓ [YES] ' else '○ [ NO ] ' end || icon || ' ' || title as task_title,
+      id::text as task_id,
+      done,
+      created_at
+    from public.didido_tasks
+    where profile_id = v_profile_id
+    order by done asc, created_at desc
+  ),
+  all_items as (
+    select task_title, task_id, 1 as sort_order, done, created_at from ordered_tasks
     union all
-    select json_build_object('id', 'ADD_NEW', 'title', '➕ Добавить новую проверку')::json
-  ) s;
+    select '➕ Добавить новую проверку' as task_title, 'ADD_NEW' as task_id, 2 as sort_order, false, now()
+    order by sort_order asc, done asc, created_at desc
+  )
+  select json_object_agg(task_title, task_id) into v_result
+  from all_items;
 
-  return coalesce(v_result, '[]'::json);
+  return coalesce(v_result, '{}'::json);
 end;
 $$;
 

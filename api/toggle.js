@@ -7,9 +7,15 @@ export default async function handler(req, res) {
     return res.status(204).end();
   }
 
-  const taskId = req.query.id || req.query.task_id;
+  let taskId = req.query.id || req.query.task_id || req.query.task;
   if (!taskId) {
     return res.status(400).json({ error: 'Укажите id задачи' });
+  }
+
+  // Extract clean UUID if wrapped in JSON or strings
+  const match = String(taskId).match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if (match) {
+    taskId = match[0];
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
