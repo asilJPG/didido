@@ -1,5 +1,182 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#f9d0dc"/><title>Это сделано?</title><link rel="stylesheet" href="/style.css"/></head>
-<body><section id="auth-screen" class="auth-screen"><div class="auth-card"><div class="brand-mark">✓</div><p class="eyebrow">ЛИЧНЫЙ ТРЕКЕР</p><h1>Это сделано?</h1><p class="auth-copy">Заходи под своим логином или создай отдельный аккаунт.</p><form id="auth-form"><label>Логин<input id="username" required pattern="[-a-zA-Z0-9_]{3,30}" placeholder="asil" autocomplete="username"/></label><label>Пароль<input id="password" required minlength="6" type="password" placeholder="Минимум 6 символов" autocomplete="current-password"/></label><button id="auth-submit" class="auth-submit" type="submit">Войти</button></form><button id="auth-switch" class="text-button">Создать аккаунт</button><p id="auth-error" class="form-error" role="alert"></p></div></section>
-<main id="app" class="app-shell" hidden><header><div class="brand-mark">✓</div><div><p class="eyebrow">ТВОЯ ПРОВЕРКА НА СЕГОДНЯ</p><h1>Это сделано?</h1></div><button id="profile-button" class="more" aria-label="Профили">•••</button></header><section class="hero"><span id="date">Сегодня</span><strong id="progress">0 из 0</strong><div class="progress-track"><i id="progress-bar"></i></div></section><section aria-label="Задачи"><div id="task-list" class="task-list"></div><p id="empty" hidden>Добавь первую вещь, о которой не хочется гадать.</p></section><form id="add-form" class="add-form"><button class="add-icon" type="submit" aria-label="Добавить">+</button><input id="task-title" maxlength="100" placeholder="Добавить новую проверку…" autocomplete="off"/><button class="submit" type="submit">Добавить</button></form></main>
-<dialog id="profiles-dialog"><div class="dialog-title"><h2>Профили</h2><button id="close-dialog">×</button></div><div id="profiles-list"></div><form id="profile-form"><input id="profile-name" maxlength="80" placeholder="Новый профиль"/><button type="submit">Добавить</button></form><button id="sign-out" class="text-button">Выйти из аккаунта</button></dialog><template id="task-template"><article class="task"><button class="check" aria-label="Отметить выполненной"></button><span class="task-icon"></span><div class="task-copy"><h2></h2><p></p></div><button class="yes" aria-label="Ответ"></button></article></template><script src="/config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/app.js"></script></body></html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <meta name="theme-color" content="#0e1117"/>
+  <title>Didido — Это сделано?</title>
+  <link rel="stylesheet" href="/style.css"/>
+</head>
+<body>
+
+  <!-- AUTH VIEW -->
+  <section id="auth-screen" class="auth-wrapper">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="auth-logo">✓</div>
+        <h1 class="auth-title">Didido</h1>
+        <p class="auth-subtitle">Твой персональный трекер ежедневных проверок</p>
+      </div>
+
+      <form id="auth-form" class="auth-form">
+        <div class="input-group">
+          <label for="username">Логин</label>
+          <input id="username" class="input-field" required pattern="[-a-zA-Z0-9_]{3,30}" placeholder="Например: asil" autocomplete="username" autofocus/>
+        </div>
+
+        <div class="input-group">
+          <label for="password">Пароль</label>
+          <input id="password" class="input-field" required minlength="6" type="password" placeholder="Минимум 6 символов" autocomplete="current-password"/>
+        </div>
+
+        <button id="auth-submit" class="btn-primary" type="submit">Войти</button>
+      </form>
+
+      <div style="text-align: center;">
+        <button id="auth-switch" class="auth-switch-btn" type="button">Создать новый аккаунт</button>
+      </div>
+
+      <div id="auth-error" class="auth-error-msg" role="alert"></div>
+    </div>
+  </section>
+
+  <!-- APP VIEW -->
+  <main id="app" class="app-container" hidden>
+    <!-- Top Navigation -->
+    <header class="app-navbar">
+      <div class="brand-section">
+        <div class="app-logo">✓</div>
+        <div class="app-brand-info">
+          <p>Личный трекер</p>
+          <h1>Didido</h1>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <button id="btn-shortcuts-guide" class="btn-icon" title="Настроить Apple Shortcuts / Back Tap">
+          ⚡ <span>Shortcuts</span>
+        </button>
+        <button id="profile-button" class="btn-icon" title="Управление профилями">
+          📁 <span>Профили</span>
+        </button>
+        <button id="sign-out" class="btn-icon" title="Выйти из аккаунта">
+          🚪 <span id="nav-username">Выйти</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Profiles Navigation Bar -->
+    <nav id="profiles-bar" class="profiles-bar">
+      <!-- Profile tabs dynamically rendered -->
+      <button id="btn-quick-add-profile" class="btn-add-profile" title="Создать новый список">+</button>
+    </nav>
+
+    <!-- Hero Dashboard Widget -->
+    <section class="hero-card">
+      <div class="hero-top">
+        <span id="date" class="hero-date">Сегодня</span>
+        <button id="btn-reset-all" class="btn-reset-all" title="Сбросить статус всех задач на новый день">
+          🔄 Сбросить проверки
+        </button>
+      </div>
+
+      <div class="hero-title-row">
+        <div id="progress-text" class="hero-stats-count">0 из 0</div>
+        <div id="progress-tag" class="hero-status-tag">0% готово</div>
+      </div>
+
+      <div class="progress-bar-container">
+        <div id="progress-bar" class="progress-bar-fill"></div>
+      </div>
+    </section>
+
+    <!-- Filter Pills -->
+    <div class="filter-bar">
+      <div class="filter-pills">
+        <button class="filter-btn active" data-filter="all">Все (<span id="count-all">0</span>)</button>
+        <button class="filter-btn" data-filter="pending">Ожидают (<span id="count-pending">0</span>)</button>
+        <button class="filter-btn" data-filter="done">Сделано (<span id="count-done">0</span>)</button>
+      </div>
+    </div>
+
+    <!-- Task List -->
+    <section aria-label="Список задач">
+      <div id="task-list" class="task-list"></div>
+
+      <div id="empty" class="empty-state" hidden>
+        <div class="empty-icon">✨</div>
+        <h3>Список проверок пуст</h3>
+        <p>Добавьте свои ежедневные важные вопросы ниже или выберите готовую подсказку.</p>
+      </div>
+    </section>
+
+    <!-- Add Task Card -->
+    <section class="add-task-card">
+      <form id="add-form" class="add-task-form">
+        <input id="task-title" class="add-task-input" maxlength="100" placeholder="Добавить новую проверку (например: Закрыл окна?)..." autocomplete="off" required/>
+        <button class="btn-add-submit" type="submit">Добавить</button>
+      </form>
+    </section>
+
+    <!-- Quick Suggestions -->
+    <div class="quick-suggestions">
+      <button class="suggestion-chip" data-title="Закрыл дверь?">🔑 Закрыл дверь?</button>
+      <button class="suggestion-chip" data-title="Выключил утюг?">🔌 Выключил утюг?</button>
+      <button class="suggestion-chip" data-title="Выключил плиту?">🍳 Выключил плиту?</button>
+      <button class="suggestion-chip" data-title="Принял витамины?">💊 Принял витамины?</button>
+      <button class="suggestion-chip" data-title="Покормил кота?">🐈 Покормил питомца?</button>
+      <button class="suggestion-chip" data-title="Закрыл окна?">🪟 Закрыл окна?</button>
+      <button class="suggestion-chip" data-title="Взял ключи и карту?">💳 Ключи и карта?</button>
+    </div>
+  </main>
+
+  <!-- PROFILES MODAL -->
+  <dialog id="profiles-dialog">
+    <div class="dialog-header">
+      <h2>Списки и профили</h2>
+      <button id="close-dialog" class="btn-close-dialog">×</button>
+    </div>
+    <div class="dialog-body">
+      <p style="font-size: 13px; color: var(--text-secondary);">
+        Разделяйте проверки по контекстам: Дом, Работа, Перед выходом, Поездки.
+      </p>
+      <div id="profiles-list" class="dialog-list"></div>
+      
+      <form id="profile-form" style="display: flex; gap: 8px;">
+        <input id="profile-name" class="input-field" maxlength="80" placeholder="Название нового списка..." required/>
+        <button class="btn-add-submit" type="submit">Создать</button>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- SHORTCUTS / BACK TAP MODAL -->
+  <dialog id="shortcuts-dialog">
+    <div class="dialog-header">
+      <h2>⚡ Apple Shortcuts & Back Tap</h2>
+      <button id="close-shortcuts-dialog" class="btn-close-dialog">×</button>
+    </div>
+    <div class="dialog-body">
+      <p style="font-size: 14px; color: var(--text-secondary);">
+        Вы можете вызывать статус проверок или отмечать задачи двойным постукиванием по задней крышке iPhone через приложение <strong>Команды (Shortcuts)</strong>.
+      </p>
+
+      <div style="font-size: 13px; font-weight: 600; margin-top: 8px;">1. Эндпоинт для входа:</div>
+      <div class="code-block">POST /rest/v1/rpc/didido_login</div>
+
+      <div style="font-size: 13px; font-weight: 600;">2. Запрос задач текущего списка:</div>
+      <div id="shortcut-tasks-endpoint" class="code-block">GET /rest/v1/didido_tasks?profile_id=eq...</div>
+
+      <div style="font-size: 13px; font-weight: 600;">3. Отметка задачи (Done):</div>
+      <div class="code-block">PATCH /rest/v1/didido_tasks?id=eq.&lt;TASK_ID&gt;</div>
+    </div>
+  </dialog>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toast-container"></div>
+
+  <!-- SCRIPTS -->
+  <script src="/config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
