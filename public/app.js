@@ -177,7 +177,16 @@ function showApp() {
 async function loadProfiles() {
   if (!currentUser?.id) return;
   const { data, error } = await db.from('didido_profiles').select('*').eq('owner_id', currentUser.id).order('created_at');
-  if (error) return showToast(error.message);
+  
+  if (error) {
+    console.error('Failed to load profiles:', error);
+    localStorage.removeItem('didido_user');
+    localStorage.removeItem('didido-active-profile');
+    currentUser = null;
+    $('#auth-screen').hidden = false;
+    $('#app').hidden = true;
+    return;
+  }
   profiles = data || [];
 
   if (profiles.length === 0) {
@@ -186,7 +195,15 @@ async function loadProfiles() {
       owner_id: currentUser.id,
       name: defaultName
     }).select().single();
-    if (!createErr && newProfile) {
+    if (createErr) {
+      console.error('Failed to create initial profile:', createErr);
+      localStorage.removeItem('didido_user');
+      localStorage.removeItem('didido-active-profile');
+      currentUser = null;
+      $('#auth-screen').hidden = false;
+      $('#app').hidden = true;
+      return;
+    } else if (newProfile) {
       profiles = [newProfile];
     }
   }
