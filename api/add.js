@@ -57,29 +57,19 @@ export default async function handler(req, res) {
       profileId = created[0].id;
     }
 
-    // 3. Auto-detect icon in JS
-    const t = String(title).toLowerCase();
-    let icon = '✓';
-    if (/двер|замок|ключ/.test(t)) icon = '🔑';
-    else if (/утюг|розетк|зарядк/.test(t)) icon = '🔌';
-    else if (/плит|газ|чайник/.test(t)) icon = '🍳';
-    else if (/таблет|витамин|лекарств/.test(t)) icon = '💊';
-    else if (/кот|собак|питом|корм/.test(t)) icon = '🐈';
-    else if (/окн|форточк|балкон/.test(t)) icon = '🪟';
-    else if (/вод|кран|душ/.test(t)) icon = '🚰';
-    else if (/свет|ламп/.test(t)) icon = '💡';
-    else if (/мусор|пакет/.test(t)) icon = '🗑️';
-    else if (/машин|авто|гараж/.test(t)) icon = '🚗';
-    else if (/карт|кошелек|деньг|паспорт/.test(t)) icon = '💳';
+    // Clean title from accidental emojis
+    const cleanTitle = String(title)
+      .replace(/^[\p{Emoji}\s✓]+/u, '')
+      .trim();
 
-    // 4. Insert task
+    // 3. Insert task without emoji
     const insertRes = await fetch(`${url}/rest/v1/didido_tasks`, {
       method: 'POST',
       headers: { ...headers, 'Prefer': 'return=representation' },
       body: JSON.stringify({
         profile_id: profileId,
-        title: String(title).trim(),
-        icon: icon,
+        title: cleanTitle,
+        icon: '✓',
         done: false
       })
     });

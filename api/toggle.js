@@ -36,15 +36,16 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. If not found by UUID, find by text/title
+    // 2. If not found by UUID, find by matching title
     if (!task) {
-      let cleanText = String(input)
-        .replace(/^[○✓]?\s*\[\s*(NO|YES)\s*\]\s*/i, '')
-        .trim();
-      cleanText = cleanText.replace(/^[\p{Emoji}\s]+/u, '').trim();
+      let cleanInput = String(input)
+        .replace(/^[○✓O]?\s*\[\s*(NO|YES)\s*\]\s*/i, '')
+        .replace(/^[\p{Emoji}\s✓]+/u, '')
+        .trim()
+        .toLowerCase();
 
-      let queryUrl = `${url}/rest/v1/didido_tasks?select=id,title,icon,done,done_at,profile_id&order=created_at.desc&limit=1`;
-      
+      // Find user and profile if username provided
+      let profileId = null;
       if (username) {
         const uRes = await fetch(`${url}/rest/v1/didido_users?username=ilike.${encodeURIComponent(String(username).trim())}&select=id`, { headers });
         const uList = await uRes.json();
@@ -52,26 +53,40 @@ export default async function handler(req, res) {
           const pRes = await fetch(`${url}/rest/v1/didido_profiles?owner_id=eq.${uList[0].id}&select=id`, { headers });
           const pList = await pRes.json();
           if (Array.isArray(pList) && pList.length > 0) {
-            queryUrl += `&profile_id=eq.${pList[0].id}`;
+            profileId = pList[0].id;
           }
         }
       }
 
-      // Try search by clean text
-      if (cleanText) {
-        const searchRes = await fetch(`${queryUrl}&title=ilike.*${encodeURIComponent(cleanText)}*`, { headers });
-        const searchList = await searchRes.json();
-        if (Array.isArray(searchList) && searchList.length > 0) {
-          task = searchList[0];
-        }
+      // Fetch tasks to compare
+      let fetchUrl = `${url}/rest/v1/didido_tasks?select=*&order=created_at.desc`;
+      if (profileId) {
+        fetchUrl += `&profile_id=eq.${profileId}`;
       }
+      const allRes = await fetch(fetchUrl, { headers });
+      const allTasks = await allRes.json();
 
-      // Fallback: search with full raw string
-      if (!task) {
-        const rawRes = await fetch(`${queryUrl}&title=ilike.*${encodeURIComponent(String(input).trim())}*`, { headers });
-        const rawList = await rawRes.json();
-        if (Array.isArray(rawList) && rawList.length > 0) {
-          task = rawList[0];
+      if (Array.isArray(allTasks)) {
+        // First look for exact match after cleaning
+        task = allTasks.find(t => {
+          const dbClean = String(t.title)
+            .replace(/^[○✓O]?\s*\[\s*(NO|YES)\s*\]\s*/i, '')
+            .replace(/^[\p{Emoji}\s✓]+/u, '')
+            .trim()
+            .toLowerCase();
+          return dbClean === cleanInput;
+        });
+
+        // If no exact match, try substring match
+        if (!task) {
+          task = allTasks.find(t => {
+            const dbClean = String(t.title)
+              .replace(/^[○✓O]?\s*\[\s*(NO|YES)\s*\]\s*/i, '')
+              .replace(/^[\p{Emoji}\s✓]+/u, '')
+              .trim()
+              .toLowerCase();
+            return dbClean.includes(cleanInput) || cleanInput.includes(dbClean);
+          });
         }
       }
     }
