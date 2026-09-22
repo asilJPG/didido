@@ -125,7 +125,26 @@ begin
 end;
 $$;
 
--- RPC for Apple Shortcuts: toggles task done boolean with 1 simple call
+-- 1. RPC to get pre-formatted menu list for Apple Shortcuts
+create or replace function public.didido_shortcut_menu(p_profile_id uuid)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_result json;
+begin
+  select json_agg(
+    json_build_object(
+      'id', id,
+      'title', case when done then '✓ [YES] ' else '○ [ NO ] ' end || icon || ' ' || title
+    ) order by done asc, created_at desc
+  ) into v_result
+  from public.didido_tasks
+  where profile_id = p_profile_id;
+
+  return coalesce(v_result, '[]'::json);
+end;
+$$;
+
+-- 2. RPC to toggle task done/undone with single call
 create or replace function public.didido_toggle_task(p_task_id uuid)
 returns json language plpgsql security definer set search_path = public as $$
 declare
@@ -148,4 +167,5 @@ $$;
 
 grant execute on function public.didido_register(text, text) to anon, authenticated;
 grant execute on function public.didido_login(text, text) to anon, authenticated;
+grant execute on function public.didido_shortcut_menu(uuid) to anon, authenticated;
 grant execute on function public.didido_toggle_task(uuid) to anon, authenticated;
