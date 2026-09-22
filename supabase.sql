@@ -125,20 +125,30 @@ begin
 end;
 $$;
 
--- 1. RPC to get pre-formatted menu list for Apple Shortcuts
+-- 1. RPC to get pre-formatted menu list for Apple Shortcuts (with "Add Task" button at the end)
 create or replace function public.didido_shortcut_menu(p_profile_id uuid)
 returns json language plpgsql security definer set search_path = public as $$
 declare
+  v_tasks json;
   v_result json;
 begin
   select json_agg(
     json_build_object(
-      'id', id,
+      'id', id::text,
       'title', case when done then '✓ [YES] ' else '○ [ NO ] ' end || icon || ' ' || title
     ) order by done asc, created_at desc
-  ) into v_result
+  ) into v_tasks
   from public.didido_tasks
   where profile_id = p_profile_id;
+
+  v_tasks := coalesce(v_tasks, '[]'::json);
+
+  select json_agg(item) into v_result
+  from (
+    select json_array_elements(v_tasks) as item
+    union all
+    select json_build_object('id', 'ADD_NEW', 'title', '➕ Добавить новую проверку')::json
+  ) s;
 
   return coalesce(v_result, '[]'::json);
 end;
@@ -165,7 +175,38 @@ begin
 end;
 $$;
 
+-- 3. RPC to add a new task from Shortcut with auto-emoji
+create or replace function public.didido_add_task(p_profile_id uuid, p_title text)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_task public.didido_tasks%rowtype;
+  v_icon text;
+begin
+  v_icon := case
+    when lower(p_title) ~ 'двер|замок|ключ' then '🔑'
+    when lower(p_title) ~ 'утюг|розетк|зарядк' then '🔌'
+    when lower(p_title) ~ 'плит|газ|чайник' then '🍳'
+    when lower(p_title) ~ 'таблет|витамин|лекарств' then '💊'
+    when lower(p_title) ~ 'кот|собак|питом|корм' then '🐈'
+    when lower(p_title) ~ 'окн|форточк|балкон' then '🪟'
+    when lower(p_title) ~ 'вод|кран|душ' then '🚰'
+    when lower(p_title) ~ 'свет|ламп' then '💡'
+    when lower(p_title) ~ 'мусор|пакет' then '🗑️'
+    when lower(p_title) ~ 'машин|авто|гараж' then '🚗'
+    when lower(p_title) ~ 'карт|кошелек|деньг|паспорт' then '💳'
+    else '✓'
+  end;
+
+  insert into public.didido_tasks (profile_id, title, icon)
+  values (p_profile_id, trim(p_title), v_icon)
+  returning * into v_task;
+
+  return json_build_object('id', v_task.id, 'title', v_task.title, 'icon', v_task.icon);
+end;
+$$;
+
 grant execute on function public.didido_register(text, text) to anon, authenticated;
 grant execute on function public.didido_login(text, text) to anon, authenticated;
 grant execute on function public.didido_shortcut_menu(uuid) to anon, authenticated;
 grant execute on function public.didido_toggle_task(uuid) to anon, authenticated;
+grant execute on function public.didido_add_task(uuid, text) to anon, authenticated;
