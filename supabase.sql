@@ -137,8 +137,7 @@ declare
 begin
   select id into v_user_id
   from public.didido_users
-  where username = lower(trim(p_user))
-     or (p_user ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and id = p_user::uuid);
+  where username = lower(trim(p_user)) or id::text = p_user;
 
   if not found then
     return json_build_array(json_build_object('id', 'ERROR', 'title', '❌ Пользователь не найден'));
@@ -210,8 +209,7 @@ declare
 begin
   select id into v_user_id
   from public.didido_users
-  where username = lower(trim(p_user))
-     or (p_user ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and id = p_user::uuid);
+  where username = lower(trim(p_user)) or id::text = p_user;
 
   if not found then
     raise exception 'Пользователь не найден';
