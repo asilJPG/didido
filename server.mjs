@@ -69,57 +69,47 @@ createServer(async (req, res) => {
 
   // 1. API: Get menu for user by username or user_id
   if (path === '/api/menu' || path === '/api/tasks') {
-    const user = url.searchParams.get('username') || url.searchParams.get('user_id') || url.searchParams.get('user');
-
-    if (!user) {
-      return send(res, 400, [{ id: 'ERROR', title: '❌ Укажите ?username=ваш_логин' }]);
-    }
-
-    try {
-      const menu = await supabaseFetch('/rest/v1/rpc/didido_shortcut_menu_by_user', 'POST', {
-        p_user: user
-      });
-      return send(res, 200, menu);
-    } catch (err) {
-      return send(res, 500, [{ id: 'ERROR', title: `❌ Ошибка: ${err.message}` }]);
-    }
+    const { default: menuHandler } = await import('./api/menu.js');
+    const query = Object.fromEntries(url.searchParams.entries());
+    const mockReq = { query, method: req.method };
+    const mockRes = {
+      setHeader: (k, v) => res.setHeader(k, v),
+      status: (c) => ({
+        json: (data) => send(res, c, data),
+        end: () => res.writeHead(c).end()
+      })
+    };
+    return menuHandler(mockReq, mockRes);
   }
 
   // 2. API: Toggle task status
   if (path === '/api/toggle') {
-    const taskId = url.searchParams.get('id') || url.searchParams.get('task_id');
-    if (!taskId) {
-      return send(res, 400, { error: 'Укажите id задачи' });
-    }
-
-    try {
-      const result = await supabaseFetch('/rest/v1/rpc/didido_toggle_task', 'POST', {
-        p_task_id: taskId
-      });
-      return send(res, 200, { success: true, task: result });
-    } catch (err) {
-      return send(res, 500, { error: err.message });
-    }
+    const { default: toggleHandler } = await import('./api/toggle.js');
+    const query = Object.fromEntries(url.searchParams.entries());
+    const mockReq = { query, method: req.method };
+    const mockRes = {
+      setHeader: (k, v) => res.setHeader(k, v),
+      status: (c) => ({
+        json: (data) => send(res, c, data),
+        end: () => res.writeHead(c).end()
+      })
+    };
+    return toggleHandler(mockReq, mockRes);
   }
 
   // 3. API: Add task for user
   if (path === '/api/add') {
-    const user = url.searchParams.get('username') || url.searchParams.get('user_id') || url.searchParams.get('user');
-    const title = url.searchParams.get('title');
-
-    if (!user || !title) {
-      return send(res, 400, { error: 'Укажите username/user_id и title' });
-    }
-
-    try {
-      const result = await supabaseFetch('/rest/v1/rpc/didido_add_task_by_user', 'POST', {
-        p_user: user,
-        p_title: title
-      });
-      return send(res, 200, { success: true, task: result });
-    } catch (err) {
-      return send(res, 500, { error: err.message });
-    }
+    const { default: addHandler } = await import('./api/add.js');
+    const query = Object.fromEntries(url.searchParams.entries());
+    const mockReq = { query, method: req.method };
+    const mockRes = {
+      setHeader: (k, v) => res.setHeader(k, v),
+      status: (c) => ({
+        json: (data) => send(res, c, data),
+        end: () => res.writeHead(c).end()
+      })
+    };
+    return addHandler(mockReq, mockRes);
   }
 
   // Static files serving
