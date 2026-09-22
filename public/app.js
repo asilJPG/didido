@@ -215,9 +215,12 @@ function renderProfilesBar() {
     bar.insertBefore(tab, addBtn);
   });
 
-  if (activeProfileId) {
-    const ep = $('#shortcut-endpoint');
-    if (ep) ep.textContent = `GET /rest/v1/didido_tasks?profile_id=eq.${activeProfileId}&select=*`;
+  if (currentUser?.id) {
+    const origin = window.location.origin;
+    const menuEp = $('#shortcut-menu-endpoint');
+    if (menuEp) menuEp.textContent = `${origin}/api/menu?user_id=${currentUser.id}`;
+    const addEp = $('#shortcut-add-endpoint');
+    if (addEp) addEp.textContent = `${origin}/api/add?user_id=${currentUser.id}&title=<ТЕКСТ>`;
   }
 }
 

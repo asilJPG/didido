@@ -119,18 +119,18 @@
   <!-- SHORTCUTS DIALOG -->
   <dialog id="shortcuts-dialog">
     <div class="dialog-title">
-      <h2>Apple Shortcuts</h2>
+      <h2>Apple Shortcuts & Back Tap</h2>
       <button id="close-shortcuts-dialog" type="button">×</button>
     </div>
     <p style="font-size: 13px; color: #756b64; margin-bottom: 12px;">
-      Вызов списка и отметка задач через Apple Shortcuts / Back Tap:
+      Прямой API без заголовков и анон-ключей (просто ссылки):
     </p>
-    <div style="font-size: 12px; font-weight: 700; color: #5f5650;">1. Вход (RPC):</div>
-    <div class="code-box">POST /rest/v1/rpc/didido_login</div>
-    <div style="font-size: 12px; font-weight: 700; color: #5f5650;">2. Задачи профиля:</div>
-    <div id="shortcut-endpoint" class="code-box">GET /rest/v1/didido_tasks?profile_id=eq...</div>
-    <div style="font-size: 12px; font-weight: 700; color: #5f5650;">3. Отметка:</div>
-    <div class="code-box">PATCH /rest/v1/didido_tasks?id=eq.&lt;ID&gt;</div>
+    <div style="font-size: 12px; font-weight: 700; color: #5f5650;">1. Получить меню (GET):</div>
+    <div id="shortcut-menu-endpoint" class="code-box">/api/menu?user_id=...</div>
+    <div style="font-size: 12px; font-weight: 700; color: #5f5650;">2. Переключить статус (GET):</div>
+    <div class="code-box">/api/toggle?id=&lt;TASK_ID&gt;</div>
+    <div style="font-size: 12px; font-weight: 700; color: #5f5650;">3. Добавить задачу (GET):</div>
+    <div id="shortcut-add-endpoint" class="code-box">/api/add?user_id=...&amp;title=&lt;ТЕКСТ&gt;</div>
   </dialog>
 
   <!-- TOAST CONTAINER -->
