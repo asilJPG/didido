@@ -1,7 +1,11 @@
 const $ = selector => document.querySelector(selector);
 const $$ = selector => document.querySelectorAll(selector);
 
-const db = window.supabase.createClient(window.DIDIDO_CONFIG.url, window.DIDIDO_CONFIG.key);
+const config = window.DIDIDO_CONFIG || {
+  url: 'https://qrfdpzigcarbethrsioe.supabase.co',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFyZmRwemlnY2FyYmV0aHJzaW9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzMDA5MTAsImV4cCI6MjA5OTg3NjkxMH0.4-woG-u6WXp48RCGqVFf_gZ2aVYwYHStZiEJ8EzLXk0'
+};
+const db = window.supabase.createClient(config.url, config.key);
 
 let currentUser = (() => {
   try { return JSON.parse(localStorage.getItem('didido_user') || 'null'); } catch { return null; }
