@@ -16,26 +16,6 @@ let activeProfileId = localStorage.getItem('didido-active-profile') || null;
 let currentFilter = 'all';
 let creatingAccount = false;
 
-const icons = ['✓', '💊', '🔑', '🪴', '🧼', '🐈', '🔌', '🪟', '🍳'];
-
-function detectIcon(title) {
-  const t = title.toLowerCase();
-  if (t.includes('двер') || t.includes('замок') || t.includes('ключ')) return '🔑';
-  if (t.includes('утюг') || t.includes('розетк') || t.includes('зарядк')) return '🔌';
-  if (t.includes('плит') || t.includes('газ') || t.includes('чайник')) return '🍳';
-  if (t.includes('таблет') || t.includes('витамин') || t.includes('лекарств')) return '💊';
-  if (t.includes('кот') || t.includes('собак') || t.includes('питом') || t.includes('корм')) return '🐈';
-  if (t.includes('окн') || t.includes('форточк') || t.includes('балкон')) return '🪟';
-  if (t.includes('вод') || t.includes('кран') || t.includes('душ')) return '🚰';
-  if (t.includes('свет') || t.includes('ламп')) return '💡';
-  if (t.includes('мусор') || t.includes('пакет')) return '🗑️';
-  if (t.includes('машин') || t.includes('авто') || t.includes('гараж')) return '🚗';
-  if (t.includes('карт') || t.includes('кошелек') || t.includes('деньг') || t.includes('паспорт')) return '💳';
-  if (t.includes('цвет') || t.includes('полит') || t.includes('растен')) return '🪴';
-  if (t.includes('рук') || t.includes('мыл')) return '🧼';
-  return icons[(tasks.length + 1) % icons.length];
-}
-
 function showToast(message) {
   const container = $('#toast-container');
   const toast = document.createElement('div');
@@ -83,7 +63,6 @@ function render() {
   filtered.forEach(task => {
     const node = $('#task-template').content.firstElementChild.cloneNode(true);
     node.classList.toggle('done', task.done);
-    node.querySelector('.task-icon').textContent = task.icon;
     node.querySelector('h2').textContent = task.title;
     node.querySelector('p').textContent = completedAt(task.done_at);
     
@@ -299,11 +278,10 @@ $('#add-form').onsubmit = async event => {
   const input = $('#task-title'), title = input.value.trim();
   if (!title || !activeProfileId) return;
 
-  const icon = detectIcon(title);
   const { data, error } = await db.from('didido_tasks').insert({
     profile_id: activeProfileId,
     title,
-    icon
+    icon: '✓'
   }).select().single();
 
   if (error) return showToast(error.message);
@@ -327,12 +305,11 @@ $$('.suggestion-chip').forEach(chip => {
   chip.onclick = async () => {
     const title = chip.dataset.title;
     if (!activeProfileId) return;
-    const icon = detectIcon(title);
 
     const { data, error } = await db.from('didido_tasks').insert({
       profile_id: activeProfileId,
       title,
-      icon
+      icon: '✓'
     }).select().single();
 
     if (error) return showToast(error.message);
