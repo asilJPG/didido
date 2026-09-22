@@ -7,15 +7,19 @@ export default async function handler(req, res) {
     return res.status(204).end();
   }
 
-  let taskId = req.query.id || req.query.task_id || req.query.task;
+  let taskId = req.query.id || req.query.task_id || req.query.task || req.query.title;
+  const user = req.query.username || req.query.user_id || req.query.user || null;
+
   if (!taskId) {
-    return res.status(400).json({ error: 'Укажите id задачи' });
+    return res.status(400).json({ error: 'Укажите id или название задачи' });
   }
 
   // Extract clean UUID if wrapped in JSON or strings
   const match = String(taskId).match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
   if (match) {
     taskId = match[0];
+  } else {
+    taskId = String(taskId).trim();
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -29,9 +33,12 @@ export default async function handler(req, res) {
         'Authorization': `Bearer ${key}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ p_task_id: taskId })
+      body: JSON.stringify({ p_task_id: taskId, p_user: user })
     });
     const result = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json({ error: result.message || result });
+    }
     return res.status(200).json({ success: true, task: result });
   } catch (err) {
     return res.status(500).json({ error: err.message });

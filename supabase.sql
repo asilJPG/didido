@@ -175,21 +175,62 @@ begin
 end;
 $$;
 
--- 2. RPC to toggle task status
-create or replace function public.didido_toggle_task(p_task_id uuid)
+-- 2. RPC to toggle task status (by UUID or by title/menu string)
+create or replace function public.didido_toggle_task(p_task_id text, p_user text default null)
 returns json language plpgsql security definer set search_path = public as $$
 declare
   v_task public.didido_tasks%rowtype;
+  v_target_id uuid;
+  v_clean_title text;
+  v_user_id uuid;
 begin
-  select * into v_task from public.didido_tasks where id = p_task_id;
-  if not found then
-    raise exception 'Task not found';
+  -- 1. Check if p_task_id is a valid UUID
+  if p_task_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
+    v_target_id := p_task_id::uuid;
+    select * into v_task from public.didido_tasks where id = v_target_id;
+  end if;
+
+  -- 2. If not found by UUID, try searching by title / menu text
+  if v_task.id is null then
+    -- Clean up prefix like "○ [ NO ] ", "✓ [YES] ", and leading emojis
+    v_clean_title := regexp_replace(p_task_id, '^[○✓]?\s*\[\s*(NO|YES)\s*\]\s*', '', 'i');
+    v_clean_title := trim(regexp_replace(v_clean_title, '^[\U00010000-\U0010ffff\s\u2000-\u3300]+', ''));
+
+    if p_user is not null and trim(p_user) != '' then
+      select id into v_user_id
+      from public.didido_users
+      where username = lower(trim(p_user)) or id::text = p_user;
+
+      select t.* into v_task
+      from public.didido_tasks t
+      join public.didido_profiles p on p.id = t.profile_id
+      where p.owner_id = v_user_id
+        and (lower(t.title) = lower(v_clean_title) 
+             or lower(t.title) = lower(trim(p_task_id)) 
+             or lower(t.title) like '%' || lower(v_clean_title) || '%'
+             or lower(trim(p_task_id)) like '%' || lower(t.title) || '%')
+      order by t.created_at desc
+      limit 1;
+    else
+      select t.* into v_task
+      from public.didido_tasks t
+      where lower(t.title) = lower(v_clean_title)
+         or lower(t.title) = lower(trim(p_task_id))
+         or lower(t.title) like '%' || lower(v_clean_title) || '%'
+         or lower(trim(p_task_id)) like '%' || lower(t.title) || '%'
+      order by t.created_at desc
+      limit 1;
+    end if;
+  end if;
+
+  if v_task.id is null then
+    raise exception 'Task not found for input: %', p_task_id;
   end if;
 
   update public.didido_tasks
   set done = not v_task.done,
       done_at = case when not v_task.done then now() else null end
-  where id = p_task_id
+  where id = v_task.id
   returning * into v_task;
 
   return json_build_object('id', v_task.id, 'title', v_task.title, 'done', v_task.done);
@@ -248,8 +289,9 @@ begin
 end;
 $$;
 
+drop function if exists public.didido_toggle_task(uuid);
 grant execute on function public.didido_register(text, text) to anon, authenticated;
 grant execute on function public.didido_login(text, text) to anon, authenticated;
 grant execute on function public.didido_shortcut_menu_by_user(text) to anon, authenticated;
-grant execute on function public.didido_toggle_task(uuid) to anon, authenticated;
+grant execute on function public.didido_toggle_task(text, text) to anon, authenticated;
 grant execute on function public.didido_add_task_by_user(text, text) to anon, authenticated;
