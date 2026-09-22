@@ -122,15 +122,25 @@
       <h2>Apple Shortcuts & Back Tap</h2>
       <button id="close-shortcuts-dialog" type="button">×</button>
     </div>
-    <p style="font-size: 13px; color: #756b64; margin-bottom: 12px;">
-      Прямой API без заголовков и анон-ключей (просто ссылки):
+    <p style="font-size: 13px; color: #756b64; margin-bottom: 12px; line-height: 1.4;">
+      Прямой GET API для виджетов и касания задней панели iPhone:
     </p>
-    <div style="font-size: 12px; font-weight: 700; color: #5f5650;">1. Получить меню (GET):</div>
-    <div id="shortcut-menu-endpoint" class="code-box">/api/menu?user_id=...</div>
-    <div style="font-size: 12px; font-weight: 700; color: #5f5650;">2. Переключить статус (GET):</div>
-    <div class="code-box">/api/toggle?id=&lt;TASK_ID&gt;</div>
-    <div style="font-size: 12px; font-weight: 700; color: #5f5650;">3. Добавить задачу (GET):</div>
-    <div id="shortcut-add-endpoint" class="code-box">/api/add?user_id=...&amp;title=&lt;ТЕКСТ&gt;</div>
+    <div style="font-size: 12px; font-weight: 700; color: #5f5650; margin-bottom: 4px;">1. Получить список проверок (GET):</div>
+    <div id="shortcut-menu-endpoint" class="code-box" style="user-select: all; cursor: pointer;" title="Нажмите, чтобы скопировать">/api/menu?username=...</div>
+    
+    <div style="font-size: 12px; font-weight: 700; color: #5f5650; margin-top: 10px; margin-bottom: 4px;">2. Переключить статус (GET):</div>
+    <div id="shortcut-toggle-endpoint" class="code-box" style="user-select: all; cursor: pointer;" title="Нажмите, чтобы скопировать">/api/toggle?id=[Выбранный элемент]&username=...</div>
+    
+    <div style="font-size: 12px; font-weight: 700; color: #5f5650; margin-top: 10px; margin-bottom: 4px;">3. Создать новую проверку (GET):</div>
+    <div id="shortcut-add-endpoint" class="code-box" style="user-select: all; cursor: pointer;" title="Нажмите, чтобы скопировать">/api/add?username=...&title=[Предоставленный ввод]</div>
+
+    <div style="margin-top: 14px; padding: 10px 12px; background: #fff5e6; border: 1px solid #f0dec5; border-radius: 8px; font-size: 12px; color: #6b4d1b; line-height: 1.45;">
+      <strong>Как настроить команду на iPhone:</strong><br/>
+      1. Действие <strong>«Получить содержимое URL»</strong> (ссылка 1)<br/>
+      2. Действие <strong>«Выбрать из списка»</strong><br/>
+      3. <strong>«Если»</strong> [Выбранный элемент] содержит <code>Добавить</code> &rarr; <strong>«Запросить ввод»</strong> &rarr; <strong>«Получить содержимое URL»</strong> (ссылка 3)<br/>
+      4. <strong>«Иначе»</strong> &rarr; <strong>«Получить содержимое URL»</strong> (ссылка 2)
+    </div>
   </dialog>
 
   <!-- TOAST CONTAINER -->

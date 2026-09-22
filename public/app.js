@@ -217,10 +217,34 @@ function renderProfilesBar() {
 
   if (currentUser?.id) {
     const origin = window.location.origin;
+    const user = currentUser.username || currentUser.id;
+    
     const menuEp = $('#shortcut-menu-endpoint');
-    if (menuEp) menuEp.textContent = `${origin}/api/menu?user_id=${currentUser.id}`;
+    if (menuEp) {
+      menuEp.textContent = `${origin}/api/menu?username=${user}`;
+      menuEp.onclick = () => {
+        navigator.clipboard.writeText(menuEp.textContent);
+        showToast('Ссылка меню скопирована!');
+      };
+    }
+
+    const toggleEp = $('#shortcut-toggle-endpoint');
+    if (toggleEp) {
+      toggleEp.textContent = `${origin}/api/toggle?id=[Выбранный элемент]&username=${user}`;
+      toggleEp.onclick = () => {
+        navigator.clipboard.writeText(toggleEp.textContent);
+        showToast('Ссылка переключения скопирована!');
+      };
+    }
+
     const addEp = $('#shortcut-add-endpoint');
-    if (addEp) addEp.textContent = `${origin}/api/add?user_id=${currentUser.id}&title=<ТЕКСТ>`;
+    if (addEp) {
+      addEp.textContent = `${origin}/api/add?username=${user}&title=[Предоставленный ввод]`;
+      addEp.onclick = () => {
+        navigator.clipboard.writeText(addEp.textContent);
+        showToast('Ссылка добавления скопирована!');
+      };
+    }
   }
 }
 
