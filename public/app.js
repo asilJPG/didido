@@ -1,21 +1,19 @@
-// Utility functions
 const $ = selector => document.querySelector(selector);
 const $$ = selector => document.querySelectorAll(selector);
 
-// Supabase client initialization
 const db = window.supabase.createClient(window.DIDIDO_CONFIG.url, window.DIDIDO_CONFIG.key);
 
-// State
 let currentUser = (() => {
   try { return JSON.parse(localStorage.getItem('didido_user') || 'null'); } catch { return null; }
 })();
 let tasks = [];
 let profiles = [];
 let activeProfileId = localStorage.getItem('didido-active-profile') || null;
-let currentFilter = 'all'; // 'all' | 'pending' | 'done'
+let currentFilter = 'all';
 let creatingAccount = false;
 
-// Smart emoji keyword matcher
+const icons = ['✓', '💊', '🔑', '🪴', '🧼', '🐈', '🔌', '🪟', '🍳'];
+
 function detectIcon(title) {
   const t = title.toLowerCase();
   if (t.includes('двер') || t.includes('замок') || t.includes('ключ')) return '🔑';
@@ -31,162 +29,106 @@ function detectIcon(title) {
   if (t.includes('карт') || t.includes('кошелек') || t.includes('деньг') || t.includes('паспорт')) return '💳';
   if (t.includes('цвет') || t.includes('полит') || t.includes('растен')) return '🪴';
   if (t.includes('рук') || t.includes('мыл')) return '🧼';
-  return '✓';
+  return icons[(tasks.length + 1) % icons.length];
 }
 
-// Toast notification helper
-function showToast(message, type = 'success') {
+function showToast(message) {
   const container = $('#toast-container');
   const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
+  toast.className = 'toast';
   toast.textContent = message;
   container.appendChild(toast);
   setTimeout(() => {
     toast.style.opacity = '0';
-    toast.style.transform = 'translateY(10px)';
     toast.style.transition = 'all 0.2s ease';
     setTimeout(() => toast.remove(), 200);
-  }, 2800);
+  }, 2500);
 }
 
-function formatDateHeader() {
-  const now = new Date();
-  const options = { weekday: 'long', day: 'numeric', month: 'long' };
-  return new Intl.DateTimeFormat('ru-RU', options).format(now);
+function dayLabel() {
+  return new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
 }
 
-function formatTaskTime(isoString) {
-  if (!isoString) return 'Ожидает проверки';
-  const date = new Date(isoString);
-  const time = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(date);
-  return `Проверено в ${time}`;
+function completedAt(value) {
+  return value ? `Сделано в ${new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(value))}` : 'Ещё не отмечено';
 }
 
-// Render task list & stats
 function render() {
   const list = $('#task-list');
-  list.innerHTML = '';
+  list.replaceChildren();
 
   const total = tasks.length;
   const doneCount = tasks.filter(t => t.done).length;
   const pendingCount = total - doneCount;
 
-  // Update counters
   $('#count-all').textContent = total;
   $('#count-pending').textContent = pendingCount;
   $('#count-done').textContent = doneCount;
 
-  $('#progress-text').textContent = `${doneCount} из ${total} сделано`;
-  const percent = total > 0 ? Math.round((doneCount / total) * 100) : 0;
-  $('#progress-bar').style.width = `${percent}%`;
+  $('#progress').textContent = `${doneCount} из ${total} сделано`;
+  $('#progress-bar').style.width = `${total ? (doneCount / total) * 100 : 0}%`;
 
-  const progressTag = $('#progress-tag');
-  if (total > 0 && doneCount === total) {
-    progressTag.textContent = '🎉 Всё готово!';
-    progressTag.classList.add('all-done');
-  } else {
-    progressTag.textContent = `${percent}% готово`;
-    progressTag.classList.remove('all-done');
-  }
-
-  // Filter tasks
   let filtered = [...tasks];
   if (currentFilter === 'pending') filtered = filtered.filter(t => !t.done);
   if (currentFilter === 'done') filtered = filtered.filter(t => t.done);
 
-  // Sort: pending first, then by created_at
   filtered.sort((a, b) => Number(a.done) - Number(b.done));
 
   $('#empty').hidden = filtered.length > 0;
 
   filtered.forEach(task => {
-    const card = document.createElement('div');
-    card.className = `task-card ${task.done ? 'done' : ''}`;
-
-    const checkBtn = document.createElement('button');
-    checkBtn.className = 'task-check-circle';
-    checkBtn.textContent = task.done ? '✓' : '';
-    checkBtn.title = task.done ? 'Снять отметку' : 'Отметить выполненным';
-    checkBtn.onclick = () => toggleTask(task);
-
-    const iconBadge = document.createElement('div');
-    iconBadge.className = 'task-icon-badge';
-    iconBadge.textContent = task.icon || '✓';
-
-    const content = document.createElement('div');
-    content.className = 'task-content';
+    const node = $('#task-template').content.firstElementChild.cloneNode(true);
+    node.classList.toggle('done', task.done);
+    node.querySelector('.task-icon').textContent = task.icon;
+    node.querySelector('h2').textContent = task.title;
+    node.querySelector('p').textContent = completedAt(task.done_at);
     
-    const title = document.createElement('div');
-    title.className = 'task-title';
-    title.textContent = task.title;
+    const yesBtn = node.querySelector('.yes');
+    yesBtn.textContent = task.done ? 'ДА' : '—';
+    yesBtn.onclick = () => toggle(task);
 
-    const time = document.createElement('div');
-    time.className = 'task-time';
-    time.textContent = formatTaskTime(task.done_at);
+    const checkBtn = node.querySelector('.check');
+    checkBtn.textContent = task.done ? '✓' : '';
+    checkBtn.onclick = () => toggle(task);
 
-    content.append(title, time);
+    const delBtn = node.querySelector('.btn-delete-task');
+    delBtn.onclick = () => deleteTask(task);
 
-    const actions = document.createElement('div');
-    actions.className = 'task-actions';
-
-    const toggleBtn = document.createElement('button');
-    toggleBtn.className = 'btn-task-toggle';
-    toggleBtn.textContent = task.done ? 'ДА' : '—';
-    toggleBtn.onclick = () => toggleTask(task);
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'btn-task-delete';
-    deleteBtn.textContent = '🗑️';
-    deleteBtn.title = 'Удалить проверку';
-    deleteBtn.onclick = () => deleteTask(task);
-
-    actions.append(toggleBtn, deleteBtn);
-
-    card.append(checkBtn, iconBadge, content, actions);
-    list.appendChild(card);
+    list.append(node);
   });
 }
 
-// Database operations
-async function toggleTask(task) {
-  const newDone = !task.done;
-  const newDoneAt = newDone ? new Date().toISOString() : null;
-
+async function toggle(task) {
+  const done = !task.done;
+  const done_at = done ? new Date().toISOString() : null;
+  
   // Optimistic UI update
-  task.done = newDone;
-  task.done_at = newDoneAt;
+  task.done = done;
+  task.done_at = done_at;
   render();
 
-  const { error } = await db.from('didido_tasks').update({
-    done: newDone,
-    done_at: newDoneAt
-  }).eq('id', task.id);
-
+  const { error } = await db.from('didido_tasks').update({ done, done_at }).eq('id', task.id);
   if (error) {
-    showToast(error.message, 'error');
-    // Revert on failure
-    task.done = !newDone;
-    task.done_at = !newDone ? new Date().toISOString() : null;
+    showToast(error.message);
+    task.done = !done;
+    task.done_at = !done ? new Date().toISOString() : null;
     render();
-  } else if (newDone) {
-    showToast(`✓ «${task.title}» отмечено!`, 'success');
   }
 }
 
 async function deleteTask(task) {
   if (!confirm(`Удалить проверку «${task.title}»?`)) return;
-
   const prevTasks = [...tasks];
   tasks = tasks.filter(t => t.id !== task.id);
   render();
 
   const { error } = await db.from('didido_tasks').delete().eq('id', task.id);
   if (error) {
-    showToast(error.message, 'error');
+    showToast(error.message);
     tasks = prevTasks;
     render();
   } else {
-    showToast('Проверка удалена', 'success');
+    showToast('Проверка удалена');
   }
 }
 
@@ -202,10 +144,10 @@ async function resetAllTasks() {
     .eq('profile_id', activeProfileId);
 
   if (error) {
-    showToast(error.message, 'error');
+    showToast(error.message);
     loadTasks();
   } else {
-    showToast('Все проверки сброшены на новый день! ✨', 'success');
+    showToast('Отметки сброшены на новый день ✨');
   }
 }
 
@@ -215,42 +157,31 @@ async function loadTasks() {
     render();
     return;
   }
-  const { data, error } = await db.from('didido_tasks')
-    .select('*')
-    .eq('profile_id', activeProfileId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    showToast(error.message, 'error');
-    return;
-  }
+  const { data, error } = await db.from('didido_tasks').select('*').eq('profile_id', activeProfileId).order('created_at', { ascending: false });
+  if (error) return showToast(error.message);
   tasks = data || [];
   render();
 }
 
+function showApp() {
+  $('#auth-screen').hidden = true;
+  $('#app').hidden = false;
+  $('#date').textContent = dayLabel();
+  loadProfiles();
+}
+
 async function loadProfiles() {
   if (!currentUser?.id) return;
-
-  const { data, error } = await db.from('didido_profiles')
-    .select('*')
-    .eq('owner_id', currentUser.id)
-    .order('created_at');
-
-  if (error) {
-    showToast(error.message, 'error');
-    return;
-  }
-
+  const { data, error } = await db.from('didido_profiles').select('*').eq('owner_id', currentUser.id).order('created_at');
+  if (error) return showToast(error.message);
   profiles = data || [];
 
-  // Auto-create initial profile if none exists
   if (profiles.length === 0) {
-    const defaultName = currentUser.username || 'Основной';
+    const defaultName = currentUser.username || 'Мой профиль';
     const { data: newProfile, error: createErr } = await db.from('didido_profiles').insert({
       owner_id: currentUser.id,
       name: defaultName
     }).select().single();
-
     if (!createErr && newProfile) {
       profiles = [newProfile];
     }
@@ -259,18 +190,15 @@ async function loadProfiles() {
   if (!profiles.some(p => p.id === activeProfileId)) {
     activeProfileId = profiles[0]?.id || null;
   }
-
   localStorage.setItem('didido-active-profile', activeProfileId || '');
-  renderProfileTabs();
-  renderProfilesDialogList();
+  renderProfilesBar();
+  renderProfilesDialog();
   loadTasks();
 }
 
-function renderProfileTabs() {
+function renderProfilesBar() {
   const bar = $('#profiles-bar');
   const addBtn = $('#btn-quick-add-profile');
-  
-  // Clear old tabs except the add button
   bar.querySelectorAll('.profile-tab').forEach(el => el.remove());
 
   profiles.forEach(profile => {
@@ -280,89 +208,44 @@ function renderProfileTabs() {
     tab.onclick = () => {
       activeProfileId = profile.id;
       localStorage.setItem('didido-active-profile', profile.id);
-      renderProfileTabs();
-      renderProfilesDialogList();
+      renderProfilesBar();
+      renderProfilesDialog();
       loadTasks();
     };
     bar.insertBefore(tab, addBtn);
   });
 
-  // Update shortcuts modal helper text
   if (activeProfileId) {
-    const endpointEl = $('#shortcut-tasks-endpoint');
-    if (endpointEl) {
-      endpointEl.textContent = `GET /rest/v1/didido_tasks?profile_id=eq.${activeProfileId}&select=*`;
-    }
+    const ep = $('#shortcut-endpoint');
+    if (ep) ep.textContent = `GET /rest/v1/didido_tasks?profile_id=eq.${activeProfileId}&select=*`;
   }
 }
 
-function renderProfilesDialogList() {
+function renderProfilesDialog() {
   const list = $('#profiles-list');
-  list.innerHTML = '';
+  list.replaceChildren();
 
   profiles.forEach(profile => {
-    const item = document.createElement('div');
-    item.className = 'dialog-item';
-
-    const nameSpan = document.createElement('span');
-    nameSpan.style.fontWeight = profile.id === activeProfileId ? '700' : '500';
-    nameSpan.textContent = profile.name + (profile.id === activeProfileId ? ' (текущий)' : '');
-
-    const btnGroup = document.createElement('div');
-    btnGroup.style.display = 'flex';
-    btnGroup.style.gap = '6px';
-
-    const selectBtn = document.createElement('button');
-    selectBtn.className = 'btn-task-toggle';
-    selectBtn.textContent = 'Выбрать';
-    selectBtn.onclick = () => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `profile-choice${profile.id === activeProfileId ? ' active' : ''}`;
+    button.textContent = profile.name + (profile.id === activeProfileId ? ' (активен)' : '');
+    button.onclick = () => {
       activeProfileId = profile.id;
       localStorage.setItem('didido-active-profile', profile.id);
       $('#profiles-dialog').close();
-      renderProfileTabs();
-      renderProfilesDialogList();
+      renderProfilesBar();
+      renderProfilesDialog();
       loadTasks();
     };
-
-    btnGroup.appendChild(selectBtn);
-
-    if (profiles.length > 1) {
-      const delBtn = document.createElement('button');
-      delBtn.className = 'btn-task-delete';
-      delBtn.style.opacity = '1';
-      delBtn.textContent = '🗑️';
-      delBtn.title = 'Удалить список';
-      delBtn.onclick = async () => {
-        if (!confirm(`Удалить список «${profile.name}» и все его проверки?`)) return;
-        const { error } = await db.from('didido_profiles').delete().eq('id', profile.id);
-        if (error) {
-          showToast(error.message, 'error');
-        } else {
-          showToast('Список удалён', 'success');
-          loadProfiles();
-        }
-      };
-      btnGroup.appendChild(delBtn);
-    }
-
-    item.append(nameSpan, btnGroup);
-    list.appendChild(item);
+    list.append(button);
   });
 }
 
-function showApp() {
-  $('#auth-screen').hidden = true;
-  $('#app').hidden = false;
-  $('#date').textContent = formatDateHeader();
-  $('#nav-username').textContent = currentUser?.username || 'Выйти';
-  loadProfiles();
-}
-
-// Event Listeners
+// Auth events
 $('#auth-form').onsubmit = async event => {
   event.preventDefault();
-  const username = $('#username').value.trim();
-  const password = $('#password').value;
+  const username = $('#username').value.trim(), password = $('#password').value;
   $('#auth-error').textContent = '';
 
   const rpcName = creatingAccount ? 'didido_register' : 'didido_login';
@@ -381,48 +264,41 @@ $('#auth-form').onsubmit = async event => {
 $('#auth-switch').onclick = () => {
   creatingAccount = !creatingAccount;
   $('#auth-submit').textContent = creatingAccount ? 'Создать аккаунт' : 'Войти';
-  $('#auth-switch').textContent = creatingAccount ? 'У меня уже есть аккаунт' : 'Создать новый аккаунт';
+  $('#auth-switch').textContent = creatingAccount ? 'У меня уже есть аккаунт' : 'Создать аккаунт';
   $('#password').autocomplete = creatingAccount ? 'new-password' : 'current-password';
   $('#auth-error').textContent = '';
 };
 
-// Add task form
+// Add task
 $('#add-form').onsubmit = async event => {
   event.preventDefault();
-  const input = $('#task-title');
-  const title = input.value.trim();
+  const input = $('#task-title'), title = input.value.trim();
   if (!title || !activeProfileId) return;
 
   const icon = detectIcon(title);
-
   const { data, error } = await db.from('didido_tasks').insert({
     profile_id: activeProfileId,
     title,
     icon
   }).select().single();
 
-  if (error) {
-    showToast(error.message, 'error');
-    return;
-  }
-
+  if (error) return showToast(error.message);
   tasks.unshift(data);
   input.value = '';
   render();
-  showToast(`Проверка «${title}» добавлена!`, 'success');
 };
 
-// Filter tabs
-$$('.filter-btn').forEach(btn => {
+// Filter clicks
+$$('.filter-chip').forEach(btn => {
   btn.onclick = () => {
-    $$('.filter-btn').forEach(b => b.classList.remove('active'));
+    $$('.filter-chip').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentFilter = btn.dataset.filter;
     render();
   };
 });
 
-// Quick suggestion chips
+// Suggestion clicks
 $$('.suggestion-chip').forEach(chip => {
   chip.onclick = async () => {
     const title = chip.dataset.title;
@@ -435,54 +311,38 @@ $$('.suggestion-chip').forEach(chip => {
       icon
     }).select().single();
 
-    if (error) {
-      showToast(error.message, 'error');
-      return;
-    }
-
+    if (error) return showToast(error.message);
     tasks.unshift(data);
     render();
-    showToast(`Добавлено: ${title}`, 'success');
+    showToast(`Добавлено: ${title}`);
   };
 });
 
-// Reset all tasks
-$('#btn-reset-all').onclick = resetAllTasks;
-
-// Profiles modal controls
+// Dialog buttons
 $('#profile-button').onclick = () => $('#profiles-dialog').showModal();
 $('#btn-quick-add-profile').onclick = () => $('#profiles-dialog').showModal();
 $('#close-dialog').onclick = () => $('#profiles-dialog').close();
 
+$('#shortcuts-button').onclick = () => $('#shortcuts-dialog').showModal();
+$('#close-shortcuts-dialog').onclick = () => $('#shortcuts-dialog').close();
+
+$('#btn-reset-all').onclick = resetAllTasks;
+
 $('#profile-form').onsubmit = async event => {
   event.preventDefault();
-  const input = $('#profile-name');
-  const name = input.value.trim();
+  const name = $('#profile-name').value.trim();
   if (!name || !currentUser?.id) return;
-
-  const { data, error } = await db.from('didido_profiles').insert({
-    owner_id: currentUser.id,
-    name
-  }).select().single();
-
-  if (error) {
-    showToast(error.message, 'error');
-    return;
-  }
-
-  input.value = '';
+  const { data, error } = await db.from('didido_profiles').insert({ owner_id: currentUser.id, name }).select().single();
+  if (error) return showToast(error.message);
+  
+  $('#profile-name').value = '';
   activeProfileId = data.id;
   localStorage.setItem('didido-active-profile', activeProfileId);
   $('#profiles-dialog').close();
-  showToast(`Список «${name}» создан!`, 'success');
+  showToast(`Профиль «${name}» создан`);
   loadProfiles();
 };
 
-// Shortcuts modal controls
-$('#btn-shortcuts-guide').onclick = () => $('#shortcuts-dialog').showModal();
-$('#close-shortcuts-dialog').onclick = () => $('#shortcuts-dialog').close();
-
-// Sign out
 $('#sign-out').onclick = () => {
   if (confirm('Выйти из аккаунта?')) {
     currentUser = null;
@@ -492,7 +352,6 @@ $('#sign-out').onclick = () => {
   }
 };
 
-// Bootstrap
 if (currentUser?.id) {
   showApp();
 }
