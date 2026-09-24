@@ -377,6 +377,27 @@ $('#sign-out').onclick = () => {
   }
 };
 
+function renderVersion() {
+  const version = config.version || 'dev';
+  const display = version === 'dev' ? 'v.dev' : `v.${version}`;
+  const commitUrl = version !== 'dev' ? `https://github.com/asilJPG/didido/commit/${version}` : 'https://github.com/asilJPG/didido';
+  
+  const authEl = $('#auth-version');
+  if (authEl) {
+    authEl.textContent = display;
+    authEl.href = commitUrl;
+    authEl.title = `Коммит: ${version}`;
+  }
+  const appEl = $('#app-version');
+  if (appEl) {
+    appEl.textContent = display;
+    appEl.href = commitUrl;
+    appEl.title = `Коммит: ${version}`;
+  }
+}
+
+renderVersion();
+
 if (currentUser?.id) {
   showApp();
 }

@@ -64,7 +64,16 @@ createServer(async (req, res) => {
   if (path === '/config.js') {
     const url = await envValue('NEXT_PUBLIC_SUPABASE_URL');
     const key = await envValue('NEXT_PUBLIC_SUPABASE_ANON_KEY');
-    return send(res, 200, `window.DIDIDO_CONFIG=${JSON.stringify({ url, key })};`, 'text/javascript; charset=utf-8');
+    let version = process.env.VERCEL_GIT_COMMIT_SHA ? process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7) : '';
+    if (!version) {
+      try {
+        const { execSync } = await import('node:child_process');
+        version = execSync('git rev-parse --short HEAD').toString().trim();
+      } catch {
+        version = 'dev';
+      }
+    }
+    return send(res, 200, `window.DIDIDO_CONFIG=${JSON.stringify({ url, key, version })};`, 'text/javascript; charset=utf-8');
   }
 
   // 1. API: Get menu for user by username or user_id
